@@ -22,7 +22,7 @@ import random
 import argparse
 import pathlib
 import numpy as np
-from PIL import Image, ImageEnhance, ImageFilter, ImageOps
+from PIL import Image, ImageEnhance, ImageFilter, ImageOps, ImageChops
 
 # Resolusi input model TinyML Ethos-U55
 TARGET_SIZE = (160, 160)
@@ -64,7 +64,7 @@ def random_augment_pil(img: Image.Image) -> Image.Image:
     shift_x = int(random.uniform(-0.08, 0.08) * w)
     shift_y = int(random.uniform(-0.08, 0.08) * h)
     if shift_x != 0 or shift_y != 0:
-        img = ImageOps.offset(img, shift_x, shift_y)
+        img = ImageChops.offset(img, shift_x, shift_y)
 
     # 6. Random Brightness (0.85 s/d 1.15)
     enhancer_b = ImageEnhance.Brightness(img)
