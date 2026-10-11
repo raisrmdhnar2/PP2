@@ -77,21 +77,19 @@ flowchart LR
 * **Peran**: Pipeline training, evaluasi metrik, kuantisasi INT8, dan kompilasi Vela NPU untuk DOC.
 * **Fitur Utama**:
   1. **Deteksi Dataset & Auto-Augmentasi**: Jika folder `PP2/data/doc_augmented` belum ada atau belum mencapai 1.000 citra/kelas, notebook otomatis menjalankan generator augmentasi dan menyimpannya.
-  2. **Model Architecture**:
+  2. **Model Architecture & Anti-Overfitting**:
      - Input layer: `(160, 160, 3)`
      - Backbone: `MobileNetV2(input_shape=(160, 160, 3), alpha=0.35, include_top=False, weights='imagenet')`
      - GlobalAveragePooling2D
-     - Dropout (0.2)
-     - Dense 2 unit (Softmax) dengan pemetaan `0 = Female`, `1 = Male`.
-  3. **Training 2 Fase**:
-     - *Fase 1 (Warm-up Head)*: Backbone dibekukan, 10 epoch dengan Adam (`lr=1e-3`).
-     - *Fase 2 (Fine-Tuning)*: 30 layer teratas backbone dibuka, 20 epoch dengan Adam (`lr=1e-4`).
+     - Dropout diperkuat ke **`0.35`**
+     - Dense 2 unit (Softmax) dengan L2 Kernel Regularizer (`1e-4`).
+  3. **Training 2 Fase dengan EarlyStopping & ReduceLROnPlateau**:
+     - *Fase 1 (Warm-up Head)*: Backbone dibekukan, 10 epoch dengan Adam (`lr=1e-3`), dilindungi `EarlyStopping` (patience=4).
+     - *Fase 2 (Conservative Fine-Tuning)*: Hanya **12 layer teratas** yang dibuka dengan learning rate rendah (`3e-5`) dan `EarlyStopping` (patience=5) untuk mencegah memorization.
   4. **Full Integer Quantization (`INT8`)**:
      - Menggunakan representative dataset generator dari data validasi DOC.
      - Input & Output terkuantisasi `int8` (skala & zero-point terekam).
      - Output model: `PP2/model/model_doc_int8.tflite` dan label: `PP2/model/labels_doc.txt`.
-  5. **Vela Compiler**:
-     - Mengompilasi `model_doc_int8.tflite` dengan target Ethos-U55 (128 MACs) menghasilkan `PP2/model/vela_out/model_doc_int8_vela.tflite`.
 
 ### B. Notebook 5: `5_deteksi_gambar_inferensi_doc.ipynb`
 * **Peran**: Inferensi lokal dan verifikasi logika keputusan 3-State (*Female, Male, Undefined*) tanpa memerlukan hardware tercolok.
