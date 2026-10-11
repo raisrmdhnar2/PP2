@@ -48,10 +48,10 @@ flowchart LR
 ```
 
 ### Logika Keputusan & Sortir 3-State
-1. **Class 0 : Betina (Hen / Female)** $\rightarrow$ Servo bergerak ke **`0°`** (Jalur Sortir Kiri).
-2. **Class 1 : Jantan (Cock / Male)** $\rightarrow$ Servo bergerak ke **`180°`** (Jalur Sortir Kanan).
-3. **Class 2 : Undefined / Blank / Ambigu** $\rightarrow$ Servo bertahan di **`90°`** (Posisi Siaga / Center Point).
-   - Terjadi jika standar deviasi piksel $\sigma < 12.0$ (kamera tertutup / kosong) atau *confidence score* $< 80\%$.
+1. **Class 0 : Betina (Hen / Female)** -> Servo bergerak ke **`0°`** (Jalur Sortir Kiri).
+2. **Class 1 : Jantan (Cock / Male)** -> Servo bergerak ke **`180°`** (Jalur Sortir Kanan).
+3. **Class 2 : Undefined / Blank / Ambigu** -> Servo bertahan di **`90°`** (Posisi Siaga / Center Point).
+   - Terjadi jika standar deviasi piksel (std dev) < 12.0 (kamera tertutup / kosong) atau *confidence score* < 80%.
 4. **Auto-Reset Standby**: Setelah waktu sortir selesai (*cooldown* 5 detik), servo secara otomatis kembali ke **`90°`** dan OLED kembali ke status `"STATUS: WAITING AI..."`.
 
 ---
@@ -202,7 +202,9 @@ Untuk menguji keandalan hardware NPU tanpa ketergantungan pencahayaan fisik kame
 ### B. Format Paket Transmisi I2C ke Arduino Uno R3
 Setiap kali inferensi selesai, Grove Vision AI V2 mengirimkan **paket data 5-byte** ke Arduino Uno R3 (Slave `0x55`):
 
-$$\text{Paket I2C} = [\text{0xAA},\; \text{class\_id},\; \text{conf\_int},\; \text{conf\_dec},\; \text{checksum}]$$
+```text
+Paket I2C = [0xAA, class_id, conf_int, conf_dec, checksum]
+```
 
 | Byte Index | Field | Tipe | Deskripsi Nilai |
 | :---: | :--- | :---: | :--- |
