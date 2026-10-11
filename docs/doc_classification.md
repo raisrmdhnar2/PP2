@@ -168,7 +168,7 @@ Dengan demikian, firmware mikrokontroler aktuator yang sudah bekerja stabil pada
 
 ## 7. Rencana Tahapan Eksekusi Selanjutnya
 
-1. **Langkah 1**: Buat skrip modul augmentasi data `PP2/data/augment_doc.py` dan generate 1.000 sampel Female & 1.000 sampel Male ke `PP2/data/doc_augmented/`.
+1. **Langkah 1**: Buat skrip modul augmentasi data [`PP2/data/doc_augmented.py`](file:///home/nexus_is/5.Project/Groove-Vision-Ai-v2/PP2/data/doc_augmented.py) dan generate 1.000 sampel Female & 1.000 sampel Male ke `PP2/data/doc_augmented/`.
 2. **Langkah 2**: Buat Notebook 4 (`PP2/notebook/4_training_dan_evaluasi_mobilenetv2_doc.ipynb`), latih model MobileNetV2 INT8 untuk DOC, dan compile dengan Vela.
 3. **Langkah 3**: Buat Notebook 5 (`PP2/notebook/5_deteksi_gambar_inferensi_doc.ipynb`) untuk pengujian lokal 3-state.
 4. **Langkah 4**: Buat Notebook 6 (`PP2/notebook/6_simulasi_hardware_grove_npu_doc.ipynb`) untuk simulasi hardware via serial.
