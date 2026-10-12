@@ -280,7 +280,11 @@ flowchart TD
   <img src="assets/PCB1.jpeg" width="48%" alt="Desain PCB 1" />
   <img src="assets/PCB2.jpeg" width="48%" alt="Desain PCB 2" />
 </p>
-<p align="center"><em>Gambar 4: Desain Layout dan Fabrikasi PCB Modul Controller (Top & Bottom Layer).</em></p>
+<p align="center">
+  <img src="assets/pcb3.jpeg" width="48%" alt="Desain PCB 3" />
+  <img src="assets/pcb4.jpeg" width="48%" alt="Desain PCB 4" />
+</p>
+<p align="center"><em>Gambar 4: Desain Layout, Rute Jalur, dan Fabrikasi PCB Modul Controller (Top & Bottom View).</em></p>
 
 #### 2. Desain 3D Mekanisme Sorting & Enclosure
 <p align="center">
@@ -307,6 +311,8 @@ PP2/
 │   ├── 3d4.jpeg                               # Render 3D CAD tampak 4
 │   ├── PCB1.jpeg                              # Layout PCB tampak atas/depan
 │   ├── PCB2.jpeg                              # Layout PCB tampak bawah/belakang
+│   ├── pcb3.jpeg                              # Layout/Fabrikasi PCB tampak 3
+│   ├── pcb4.jpeg                              # Layout/Fabrikasi PCB tampak 4
 │   ├── simulasi.png                           # Hasil simulasi serial inferensi hardware
 │   ├── vela_cock_hen.png                      # Laporan kompilasi Vela model PoC
 │   └── vela_doc.png                           # Laporan kompilasi Vela model DOC
