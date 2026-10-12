@@ -1,4 +1,6 @@
-# Edge AI Poultry Sexing System: MobileNetV2 on Seeed Grove Vision AI V2 (Arm Ethos-U55 NPU) & Arduino Uno R3
+# Sistem Pendukung Identifikasi Jenis Kelamin Day Old Chick (DOC) Menggunakan Metode Feather Sexing
+
+
 
 Sistem sortir cerdas berbasis **Edge AI / TinyML** untuk klasifikasi jenis kelamin unggas secara otomatis dan *real-time*. Proyek ini mencakup dua dataset utama:
 1. **Dataset Dewasa (Proof of Concept - PoC)**: Dataset `Sexing-Chicken-2` (`hen` vs `cock`) untuk memvalidasi seluruh *hardware-in-the-loop pipeline*, komunikasi I2C, pergerakan aktuator servo, dan tampilan OLED.
@@ -61,7 +63,7 @@ flowchart LR
 Model dirancang dengan arsitektur **MobileNetV2 ($\alpha = 0.35$, input $160 \times 160 \times 3$)** dan diekspor menggunakan *Post-Training Quantization (PTQ) Full INT8*.
 
 ### A. Dataset PoC: `Sexing-Chicken-2` (Ayam Dewasa)
-* **Dataset**: 725 citra train, 191 citra test (`hen` vs `cock`).
+* **Dataset**: 3396 citra train, 191 citra test (`hen` vs `cock`).
 
 | Metrik Evaluasi | Float32 Model (`mobilenetv2_sexing_float32.keras`) | Full INT8 Quantized (`model_int8.tflite`) | Selisih / Dampak Kuantisasi |
 | :--- | :---: | :---: | :---: |
@@ -271,12 +273,40 @@ flowchart TD
 
 ---
 
+### Dokumentasi Fisik Perangkat Keras (PCB & Desain 3D Enclosure)
+
+#### 1. Desain PCB Modul Controller & Interface
+<p align="center">
+  <img src="assets/PCB1.jpeg" width="48%" alt="Desain PCB 1" />
+  <img src="assets/PCB2.jpeg" width="48%" alt="Desain PCB 2" />
+</p>
+<p align="center"><em>Gambar 4: Desain Layout dan Fabrikasi PCB Modul Controller (Top & Bottom Layer).</em></p>
+
+#### 2. Desain 3D Mekanisme Sorting & Enclosure
+<p align="center">
+  <img src="assets/3d1.jpeg" width="48%" alt="Desain 3D View 1" />
+  <img src="assets/3d2.jpeg" width="48%" alt="Desain 3D View 2" />
+</p>
+<p align="center">
+  <img src="assets/3d3.jpeg" width="48%" alt="Desain 3D View 3" />
+  <img src="assets/3d4.jpeg" width="48%" alt="Desain 3D View 4" />
+</p>
+<p align="center"><em>Gambar 5: Desain 3D Modeling CAD Enclosure Kamera, Mounting Servo, dan Jalur Sortir Unggas.</em></p>
+
+---
+
 ## Struktur Direktori Repositori
 
 ```
 PP2/
 ├── README.md                                  # Dokumentasi utama proyek
 ├── assets/                                    # Aset gambar dokumentasi & laporan Vela
+│   ├── 3d1.jpeg                               # Render 3D CAD tampak 1
+│   ├── 3d2.jpeg                               # Render 3D CAD tampak 2
+│   ├── 3d3.jpeg                               # Render 3D CAD tampak 3
+│   ├── 3d4.jpeg                               # Render 3D CAD tampak 4
+│   ├── PCB1.jpeg                              # Layout PCB tampak atas/depan
+│   ├── PCB2.jpeg                              # Layout PCB tampak bawah/belakang
 │   ├── simulasi.png                           # Hasil simulasi serial inferensi hardware
 │   ├── vela_cock_hen.png                      # Laporan kompilasi Vela model PoC
 │   └── vela_doc.png                           # Laporan kompilasi Vela model DOC
