@@ -9,7 +9,7 @@ conda install -c conda-forge numpy pandas scipy matplotlib seaborn scikit-learn 
 conda install -c pytorch pytorch cpuonly -y
 
 vela model_int8.tflite --accelerator-config ethos-u55-64 --output-dir ./vela_out
-
+vela model_doc_int8.tflite --accelerator-config ethos-u55-64 --output-dir ./vela_out
 
 
 * Build CPU
@@ -73,6 +73,13 @@ python3 xmodem/xmodem_send.py --port=/dev/ttyACM0 --baudrate=921600 --protocol=x
 # 4. Baca serial — TFLM firmware baudrate 921600 (BUKAN 115200!)
 picocom -b 921600 /dev/ttyACM0
 
+python3 xmodem/xmodem_send.py --port=/dev/ttyACM0 --baudrate=921600 --protocol=xmodem \
+  --file=we2_image_gen_local/output_case1_sec_wlcsp/output.img \
+  --model="/home/nexus_is/5.Project/Groove-Vision-Ai-v2/PP2/model/vela_out/model_doc_int8_vela.tflite 0xB7B000 0x00000"
+# Tekan RESET di board saat diminta
+
+# 4. Baca serial — TFLM firmware baudrate 921600 (BUKAN 115200!)
+picocom -b 921600 /dev/ttyACM0
 
 python3 ~/5.Project/Groove-Vision-Ai-v2/PP2/model/upload_infer_grove.py \
   --image ~/5.Project/Groove-Vision-Ai-v2/PP2/data/Sexing-Chicken-2/test/hen/hen_393_jpg.rf.19856f51c6d1ed3054dbba6683129cc8.jpg
@@ -85,3 +92,8 @@ python3 ~/5.Project/Groove-Vision-Ai-v2/PP2/model/upload_infer_grove.py \
 python3 ~/5.Project/Groove-Vision-Ai-v2/PP2/model/upload_infer_grove.py --blank
 
 python3 ~/5.Project/Groove-Vision-Ai-v2/PP2/model/upload_infer_grove.py
+
+conda activate tinyml
+python flash_firmware.py --port /dev/ttyACM0 --model base
+
+http://localhost:8080

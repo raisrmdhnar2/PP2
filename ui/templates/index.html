@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DOC Sexing AI Monitor — Seeed Grove Vision AI V2</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="navbar">
+      <div class="nav-brand">
+        <span class="brand-icon">🐣</span>
+        <div>
+          <h1>DOC Sexing AI Monitor</h1>
+          <p class="subtitle">Seeed Grove Vision AI V2 &bull; Arm Cortex-M55 + Ethos-U55 NPU</p>
+        </div>
+      </div>
+      <div class="nav-controls">
+        <div class="control-group">
+          <label for="serial-port-select">Port Hardware:</label>
+          <div class="select-wrapper">
+            <select id="serial-port-select">
+              <option value="">Memuat port...</option>
+            </select>
+          </div>
+          <button id="btn-refresh-ports" class="btn btn-secondary btn-icon" title="Scan Ulang Port">🔄</button>
+        </div>
+        <button id="btn-ping" class="btn btn-secondary">
+          <span class="status-dot" id="ping-indicator"></span> Ping Grove
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-layout">
+      <!-- Left Column: Input Selection (Live Camera or File) -->
+      <section class="card input-section">
+        <!-- Tab Mode Switcher -->
+        <div class="tab-header">
+          <button class="tab-btn active" data-tab="tab-camera" id="tab-btn-cam">
+            📷 Mode Kamera Live
+          </button>
+          <button class="tab-btn" data-tab="tab-file" id="tab-btn-file">
+            🖼️ Mode Input Gambar
+          </button>
+        </div>
+
+        <div class="tab-content">
+          <!-- TAB 1: LIVE WEBCAM CAMERA -->
+          <div id="tab-camera" class="tab-pane active">
+            <div class="camera-wrapper">
+              <div class="video-container" id="video-container">
+                <video id="webcam-video" autoplay playsinline muted></video>
+                <div class="camera-overlay">
+                  <div class="viewfinder-box">
+                    <span class="viewfinder-tag">NPU Area (160×160)</span>
+                  </div>
+                </div>
+                <div class="camera-placeholder" id="camera-placeholder">
+                  <span class="placeholder-icon">📹</span>
+                  <p>Kamera belum dinyalakan</p>
+                  <small>Klik "Buka Kamera" untuk streaming video dari webcam/USB cam PC</small>
+                </div>
+              </div>
+              <canvas id="capture-canvas" width="160" height="160" style="display:none;"></canvas>
+            </div>
+
+            <div class="camera-actions">
+              <button id="btn-toggle-cam" class="btn btn-primary">
+                <span class="icon">▶️</span> Buka Kamera
+              </button>
+              <button id="btn-capture-infer" class="btn btn-success" disabled>
+                <span class="icon">📸</span> Ambil & Infer ke Grove
+              </button>
+              <div class="auto-stream-toggle">
+                <label class="switch">
+                  <input type="checkbox" id="chk-auto-infer" disabled>
+                  <span class="slider round"></span>
+                </label>
+                <span class="switch-label">Auto-Infer (tiap 2 dtk)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: FILE UPLOAD & PRESET SAMPLES -->
+          <div id="tab-file" class="tab-pane">
+            <div class="upload-dropzone" id="dropzone">
+              <input type="file" id="file-input" accept="image/png, image/jpeg, image/jpg, image/webp" style="display: none;">
+              <div class="dropzone-content">
+                <span class="dropzone-icon">📁</span>
+                <p><strong>Klik untuk memilih gambar</strong> atau seret file ke sini</p>
+                <small>Format: JPG, PNG, WEBP (Otomatis di-crop 160×160)</small>
+              </div>
+              <img id="file-preview-img" class="file-preview-img" style="display: none;" alt="Preview Citra">
+            </div>
+
+            <div class="preset-section">
+              <h4>⚡ Sampel Cepat (Quick Test Samples):</h4>
+              <div class="preset-buttons" id="preset-container">
+                <div class="loading-spinner-sm">Memuat sampel dataset...</div>
+              </div>
+            </div>
+
+            <div class="file-actions">
+              <button id="btn-send-file" class="btn btn-success btn-large" disabled>
+                <span class="icon">🚀</span> Kirim ke Grove Vision AI (Infer)
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Results & Hardware Telemetry -->
+      <section class="card results-section">
+        <h2 class="card-title">Hasil Prediksi NPU On-Device</h2>
+
+        <!-- Main Prediction Badge -->
+        <div class="prediction-card" id="prediction-card">
+          <div class="badge-header">
+            <span class="sub-label">Hasil Klasifikasi</span>
+            <span class="status-pill ready" id="status-pill">Siap Menerima Input</span>
+          </div>
+          <div class="class-result" id="class-result-text">Menunggu Input...</div>
+
+          <!-- Confidence Meter -->
+          <div class="confidence-container">
+            <div class="confidence-meta">
+              <span>Tingkat Kepastian (Confidence):</span>
+              <span class="confidence-val" id="confidence-val">0.0%</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="confidence-bar" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Telemetry & Hardware Metrics -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-icon">⚡</span>
+            <div>
+              <div class="metric-label">Latensi NPU (Ethos-U55)</div>
+              <div class="metric-value" id="val-npu-ms">- ms</div>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-icon">⏱️</span>
+            <div>
+              <div class="metric-label">Total Round-Trip</div>
+              <div class="metric-value" id="val-total-ms">- ms</div>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-icon">🔌</span>
+            <div>
+              <div class="metric-label">I2C Arduino (0x55)</div>
+              <div class="metric-value" id="val-i2c-status">-</div>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-icon">🔒</span>
+            <div>
+              <div class="metric-label">CRC-16 Checksum</div>
+              <div class="metric-value" id="val-checksum">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Visual Inspection (Preprocessed NPU Image) -->
+        <div class="inspection-box">
+          <h4>Citra Input NPU (160×160 RGB):</h4>
+          <div class="inspection-body">
+            <div class="preprocessed-frame-box">
+              <img id="img-npu-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Crect width='160' height='160' fill='%231f2937'/%3E%3Ctext x='50%25' y='50%25' fill='%236b7280' font-size='12' text-anchor='middle' alignment-baseline='middle'%3E160 x 160%3C/text%3E%3C/svg%3E" alt="Preprocessed 160x160">
+            </div>
+            <div class="inspection-meta">
+              <p><strong>Resolusi:</strong> 160 × 160 piksel</p>
+              <p><strong>Format:</strong> RGB 8-bit Raw (76.800 B)</p>
+              <p><strong>Kuantisasi:</strong> int8 [-128..127]</p>
+              <small class="text-muted">Citra ini adalah salinan persis piksel yang diproses oleh Arm Ethos-U55 NPU.</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hardware Raw Logs Accordion -->
+        <details class="logs-accordion">
+          <summary>📜 Raw Hardware Logs & Protokol PP2IR</summary>
+          <pre id="raw-logs-terminal">Menunggu eksekusi...</pre>
+        </details>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>PP2 Chicken DOC Sexing AI &bull; Grove Vision AI Module V2 (Cortex-M55 @ 400MHz)</span>
+      <span class="footer-badge">Firmware: tflm_pp2_full_v1</span>
+    </footer>
+  </div>
+
+  <script src="/static/js/main.js"></script>
+</body>
+</html>
+

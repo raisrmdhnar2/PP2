@@ -18,10 +18,10 @@ Folder ini berisi *Jupyter Notebooks* untuk merealisasikan model TinyML yang dap
 
 ## B. Jalur Model 2: Deteksi Jenis Kelamin Anak Ayam (*Day-Old Chick / DOC Sexing*)
 4. **[`4_training_dan_evaluasi_mobilenetv2_doc.ipynb`](file:///home/nexus_is/5.Project/Groove-Vision-Ai-v2/PP2/notebook/4_training_dan_evaluasi_mobilenetv2_doc.ipynb)**
-   * Memuat dataset DOC (`data/doc_augmented/`, dengan auto-augmentasi ke 1.000 citra/kelas jika belum ada).
-   * Melatih model **MobileNetV2 ($\alpha=0.35$, $160\times160\times3$)** dengan pemetaan `0 = Female` dan `1 = Male`.
-   * Mengekspor model ke `../model/model_doc_int8.tflite` dan kompilasi Vela NPU `model_doc_int8_vela.tflite`.
+   * Memuat dataset DOC (`data/doc_augmented/`) dengan standar partisi ML 70% Training (1.400 citra), 20% Validation (400 citra), dan 10% Testing (200 citra) tanpa kebocoran data (*Chick-Level Stratification*).
+   * Melatih model **MobileNetV2 ($\alpha=0.35$, $160\times160\times3$)** dengan transfer bobot unggas domain-adaptive.
+   * Evaluasi komprehensif ML: Kurva Belajar, Optimal Threshold Tuning (Validasi 20%), Dual Confusion Matrix, Sensitivity/Specificity/MCC, ROC-AUC, PR Curve, Grad-CAM, serta kuantisasi INT8 penuh ke `../model/model_doc_int8.tflite` dan kompilasi Vela NPU `model_doc_int8_vela.tflite`.
 5. **[`5_deteksi_gambar_inferensi_doc.ipynb`](file:///home/nexus_is/5.Project/Groove-Vision-Ai-v2/PP2/notebook/5_deteksi_gambar_inferensi_doc.ipynb)**
-   * Pengujian inferensi lokal TFLite Interpreter untuk citra DOC dengan logika keputusan 3-State (`Female 0°`, `Male 180°`, `Undefined 90°`).
+   * Pengujian inferensi lokal TFLite Interpreter untuk citra DOC dengan logika keputusan 3-State (`Female 0°`, `Male 180°`, `Undefined 90°`), deteksi frame kosong/ambigu, grid kasus uji interaktif, dan evaluasi batch throughput pada 200 citra test set (10% test split).
 6. **[`6_simulasi_hardware_grove_npu_doc.ipynb`](file:///home/nexus_is/5.Project/Groove-Vision-Ai-v2/PP2/notebook/6_simulasi_hardware_grove_npu_doc.ipynb)**
    * Pengiriman citra DOC via USB-C serial protokol `PP2IR` (76.800 B) ke hardware Grove Vision AI V2 on-device NPU inference.

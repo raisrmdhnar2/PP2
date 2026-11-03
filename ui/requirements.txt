@@ -1,0 +1,5 @@
+# Dependensi Python untuk Dashboard UI PP2 DOC Sexing
+pyserial>=3.5
+pillow>=9.0.0
+numpy>=1.20.0
+
