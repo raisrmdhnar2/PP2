@@ -40,6 +40,98 @@ document.addEventListener("DOMContentLoaded", () => {
   const imgNpuPreview = document.getElementById("img-npu-preview");
   const rawLogsTerminal = document.getElementById("raw-logs-terminal");
 
+  // Preprocessing Verification Elements
+  const preprocessCardFile = document.getElementById("preprocess-card-file");
+  const preprocessThumbFile = document.getElementById("preprocess-thumb-file");
+  const preprocessOrigSize = document.getElementById("preprocess-orig-size");
+  const preprocessQualityFile = document.getElementById("preprocess-quality-file");
+  const preprocessCrcFile = document.getElementById("preprocess-crc-file");
+
+  const preprocessCardCam = document.getElementById("preprocess-card-cam");
+  const preprocessThumbCam = document.getElementById("preprocess-thumb-cam");
+  const preprocessQualityCam = document.getElementById("preprocess-quality-cam");
+
+  // Mode Switcher Elements
+  const btnToggleUiMode = document.getElementById("btn-toggle-ui-mode");
+  const modeIcon = document.getElementById("mode-icon");
+  const modeText = document.getElementById("mode-text");
+  const exhibitPill = document.getElementById("exhibit-pill");
+
+  // Friendly Results Elements
+  const classResultIcon = document.getElementById("class-result-icon");
+  const classResultLabel = document.getElementById("class-result-label");
+  const classResultSubtitle = document.getElementById("class-result-subtitle");
+  const actionGuideIcon = document.getElementById("action-guide-icon");
+  const actionGuideText = document.getElementById("action-guide-text");
+
+  // Counter Elements
+  const cntTotal = document.getElementById("cnt-total");
+  const cntFemale = document.getElementById("cnt-female");
+  const cntMale = document.getElementById("cnt-male");
+  const pctFemale = document.getElementById("pct-female");
+  const pctMale = document.getElementById("pct-male");
+  const btnResetCounter = document.getElementById("btn-reset-counter");
+
+  // State: Mode (Default: exhibition)
+  let currentUiMode = localStorage.getItem("doc_ui_mode") || "exhibition";
+
+  // State: Counter
+  let counterData = {
+    total: parseInt(localStorage.getItem("doc_count_total") || "0", 10),
+    female: parseInt(localStorage.getItem("doc_count_female") || "0", 10),
+    male: parseInt(localStorage.getItem("doc_count_male") || "0", 10)
+  };
+
+  function updateCounterUI() {
+    if (!cntTotal) return;
+    cntTotal.textContent = counterData.total;
+    cntFemale.textContent = counterData.female;
+    cntMale.textContent = counterData.male;
+    const pFemale = counterData.total > 0 ? Math.round((counterData.female / counterData.total) * 100) : 0;
+    const pMale = counterData.total > 0 ? Math.round((counterData.male / counterData.total) * 100) : 0;
+    if (pctFemale) pctFemale.textContent = pFemale + "%";
+    if (pctMale) pctMale.textContent = pMale + "%";
+
+    localStorage.setItem("doc_count_total", counterData.total.toString());
+    localStorage.setItem("doc_count_female", counterData.female.toString());
+    localStorage.setItem("doc_count_male", counterData.male.toString());
+  }
+
+  function applyUiMode(mode) {
+    currentUiMode = mode;
+    localStorage.setItem("doc_ui_mode", mode);
+    document.body.classList.remove("mode-exhibition", "mode-developer");
+    document.body.classList.add("mode-" + mode);
+
+    if (mode === "exhibition") {
+      if (modeIcon) modeIcon.textContent = "🎪";
+      if (modeText) modeText.textContent = "Mode Pameran";
+      if (exhibitPill) exhibitPill.textContent = "Mode Pameran";
+      if (btnToggleUiMode) btnToggleUiMode.title = "Klik untuk membuka Mode Ahli (Detail Teknis)";
+    } else {
+      if (modeIcon) modeIcon.textContent = "🎓";
+      if (modeText) modeText.textContent = "Mode Ahli";
+      if (exhibitPill) exhibitPill.textContent = "Mode Teknis / Ahli";
+      if (btnToggleUiMode) btnToggleUiMode.title = "Klik untuk kembali ke Mode Pameran";
+    }
+  }
+
+  if (btnToggleUiMode) {
+    btnToggleUiMode.addEventListener("click", () => {
+      const nextMode = currentUiMode === "exhibition" ? "developer" : "exhibition";
+      applyUiMode(nextMode);
+    });
+  }
+
+  if (btnResetCounter) {
+    btnResetCounter.addEventListener("click", () => {
+      if (confirm("Reset seluruh data hitungan sortir hari ini?")) {
+        counterData = { total: 0, female: 0, male: 0 };
+        updateCounterUI();
+      }
+    });
+  }
+
   // State
   let mediaStream = null;
   let autoInferTimer = null;
@@ -202,9 +294,46 @@ document.addEventListener("DOMContentLoaded", () => {
     const startY = (vHeight - minDim) / 2;
 
     const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     // Draw cropped center square scaled to 160x160
     ctx.drawImage(video, startX, startY, minDim, minDim, 0, 0, 160, 160);
-    return canvas.toDataURL("image/jpeg", 0.92);
+    const b64 = canvas.toDataURL("image/jpeg", 0.95);
+
+    if (preprocessCardCam && preprocessThumbCam) {
+      preprocessCardCam.style.display = "block";
+      preprocessThumbCam.src = b64;
+      if (preprocessQualityCam) {
+        preprocessQualityCam.textContent = "160×160 RGB Tersinkronisasi Viewfinder";
+      }
+    }
+    return b64;
+  }
+
+  async function fetchPreprocessPreview(payload) {
+    try {
+      if (preprocessCardFile) {
+        preprocessCardFile.style.display = "block";
+        if (preprocessQualityFile) preprocessQualityFile.textContent = "Memproses kalibrasi 160×160...";
+      }
+      const res = await fetch("/api/preprocess_preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (preprocessThumbFile) preprocessThumbFile.src = data.preprocessed_image;
+        if (preprocessOrigSize) preprocessOrigSize.textContent = `${data.orig_size[0]} × ${data.orig_size[1]} px`;
+        if (preprocessQualityFile) {
+          preprocessQualityFile.textContent = `${data.quality.status} — ${data.quality.message}`;
+          preprocessQualityFile.style.color = data.quality.status === "OPTIMAL" ? "var(--female-color)" : "var(--danger)";
+        }
+        if (preprocessCrcFile) preprocessCrcFile.textContent = data.checksum;
+      }
+    } catch (err) {
+      console.warn("Gagal mengambil preview preprocessing:", err);
+    }
   }
 
   async function executeInference(payload) {
@@ -305,6 +434,10 @@ document.addEventListener("DOMContentLoaded", () => {
       // Reset preset button active state
       document.querySelectorAll(".btn-sample").forEach(b => b.classList.remove("active"));
       btnSendFile.disabled = false;
+      btnSendFile.innerHTML = '<span class="icon">🚀</span> Kirim Ulang ke Grove (Re-Infer)';
+
+      // Auto-Kirim langsung ke Grove Vision AI (NPU) saat file dipilih!
+      executeInference({ image: selectedFileBase64 });
     };
     reader.readAsDataURL(file);
   }
@@ -333,6 +466,10 @@ document.addEventListener("DOMContentLoaded", () => {
             dropzoneContent.style.display = "none";
 
             btnSendFile.disabled = false;
+            btnSendFile.innerHTML = '<span class="icon">🚀</span> Kirim Ulang ke Grove (Re-Infer)';
+
+            // Auto-Kirim langsung ke Grove Vision AI (NPU) saat sampel diklik!
+            executeInference({ sample_path: s.path });
           });
           presetContainer.appendChild(btn);
         });
@@ -373,9 +510,37 @@ document.addEventListener("DOMContentLoaded", () => {
     statusPill.textContent = "Inferensi Sukses";
     statusPill.className = "status-pill ready";
 
-    // Class Name & Badge
-    classResultText.textContent = res.label_display || res.class_name;
-    classResultText.className = "class-result " + (res.badge_type || "");
+    // Class Name & Badge & Friendly Elements
+    const badge = res.badge_type || "";
+    classResultText.className = "class-result " + badge;
+
+    if (badge === "female" || badge === "hen") {
+      if (classResultIcon) classResultIcon.textContent = "🐥";
+      if (classResultLabel) classResultLabel.textContent = "BETINA (FEMALE)";
+      if (classResultSubtitle) classResultSubtitle.textContent = "Kategori: Bibit Ayam Petelur (Layer)";
+      if (actionGuideIcon) actionGuideIcon.textContent = "➡️";
+      if (actionGuideText) actionGuideText.textContent = "Pintu Sortir: Arahkan ke Jalur KIRI (Kotak Betina)";
+
+      counterData.female++;
+      counterData.total++;
+      updateCounterUI();
+    } else if (badge === "male" || badge === "cock") {
+      if (classResultIcon) classResultIcon.textContent = "🐓";
+      if (classResultLabel) classResultLabel.textContent = "JANTAN (MALE)";
+      if (classResultSubtitle) classResultSubtitle.textContent = "Kategori: Bibit Ayam Pedaging (Broiler)";
+      if (actionGuideIcon) actionGuideIcon.textContent = "➡️";
+      if (actionGuideText) actionGuideText.textContent = "Pintu Sortir: Arahkan ke Jalur KANAN (Kotak Jantan)";
+
+      counterData.male++;
+      counterData.total++;
+      updateCounterUI();
+    } else {
+      if (classResultIcon) classResultIcon.textContent = "❓";
+      if (classResultLabel) classResultLabel.textContent = res.label_display || res.class_name || "TIDAK TERDETEKSI";
+      if (classResultSubtitle) classResultSubtitle.textContent = "Bulu sayap belum berada tepat di area panduan";
+      if (actionGuideIcon) actionGuideIcon.textContent = "⚠️";
+      if (actionGuideText) actionGuideText.textContent = "Posisikan bulu sayap anak ayam tepat ke tengah kotak kamera";
+    }
 
     // Confidence
     const conf = res.confidence || 0.0;
@@ -400,6 +565,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // Image Preprocessed Preview
     if (res.preprocessed_image) {
       imgNpuPreview.src = res.preprocessed_image;
+      if (preprocessThumbFile) preprocessThumbFile.src = res.preprocessed_image;
+      if (preprocessCardFile) preprocessCardFile.style.display = "block";
+      if (preprocessQualityFile && res.quality) {
+        preprocessQualityFile.textContent = `${res.quality.status} — ${res.quality.message}`;
+        preprocessQualityFile.style.color = res.quality.status === "OPTIMAL" ? "var(--female-color)" : "var(--danger)";
+      }
+      if (preprocessCrcFile && res.checksum) {
+        preprocessCrcFile.textContent = res.checksum;
+      }
     }
 
     // Logs
@@ -413,6 +587,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==========================================
   // INITIALIZATION
   // ==========================================
+  applyUiMode(currentUiMode);
+  updateCounterUI();
   loadSerialPorts();
   loadPresetSamples();
 });

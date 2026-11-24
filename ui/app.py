@@ -30,38 +30,31 @@ grove_client = grove_serial.GroveVisionClient()
 def get_preset_samples():
     """Mengumpulkan sampel citra representatif yang jelas (fokus bulu sayap DOC) untuk pengujian cepat."""
     samples = []
-    female_dir = os.path.join(PROJECT_ROOT, "PP2/data/doc_augmented/test/Female")
-    male_dir   = os.path.join(PROJECT_ROOT, "PP2/data/doc_augmented/test/Male")
+    female_dir = os.path.join(PROJECT_ROOT, "PP2/data/doc/Female")
+    male_dir   = os.path.join(PROJECT_ROOT, "PP2/data/doc/Male")
     
     # Citra pilihan berkualitas tinggi dengan fokus bulu sayap yang jelas (bukan tangan/potongan ubin)
+    # Jumlah tombol di UI akan persis mengikuti daftar ini (bebas ditambah atau dikurangi)
     curated_females = [
-        os.path.join(female_dir, "female_test_0086.jpg"),
-        os.path.join(female_dir, "female_test_0049.jpg"),
-        os.path.join(female_dir, "female_test_0088.jpg"),
+        os.path.join(female_dir, "female_test_0002.jpg"),
+        os.path.join(female_dir, "female_test_0003.jpg"),
     ]
     curated_males = [
-        os.path.join(male_dir, "male_test_0026.jpg"),
-        os.path.join(male_dir, "male_test_0069.jpg"),
-        os.path.join(male_dir, "male_test_0075.jpg"),
+        os.path.join(male_dir, "male_test_0001.jpg"),
+        os.path.join(male_dir, "male_test_0002.jpg"),
     ]
 
+    # Ambil persis file yang terdaftar dan ada di disk
     females = [f for f in curated_females if os.path.exists(f)]
-    if len(females) < 3 and os.path.exists(female_dir):
-        for f in sorted(glob.glob(os.path.join(female_dir, "*.*"))):
-            if f not in females:
-                females.append(f)
-            if len(females) >= 3:
-                break
+    males   = [m for m in curated_males if os.path.exists(m)]
 
-    males = [m for m in curated_males if os.path.exists(m)]
-    if len(males) < 3 and os.path.exists(male_dir):
-        for m in sorted(glob.glob(os.path.join(male_dir, "*.*"))):
-            if m not in males:
-                males.append(m)
-            if len(males) >= 3:
-                break
+    # Fallback darurat: Jika daftar di atas dikosongkan sama sekali, baru baca dari folder
+    if not females and os.path.exists(female_dir):
+        females = sorted(glob.glob(os.path.join(female_dir, "*.*")))[:2]
+    if not males and os.path.exists(male_dir):
+        males = sorted(glob.glob(os.path.join(male_dir, "*.*")))[:2]
 
-    for idx, f in enumerate(females[:3]):
+    for idx, f in enumerate(females):
         samples.append({
             "id": f"female_{idx+1}",
             "name": f"Betina (Female) #{idx+1}",
@@ -69,7 +62,7 @@ def get_preset_samples():
             "badge": "female",
             "path": f
         })
-    for idx, m in enumerate(males[:3]):
+    for idx, m in enumerate(males):
         samples.append({
             "id": f"male_{idx+1}",
             "name": f"Jantan (Male) #{idx+1}",
@@ -217,7 +210,54 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_json_response(result)
             return
 
-        # 2. API: Inferensi Citra (Kamera atau File)
+        # 2. API: Pratinjau Preprocessing Citra (160x160 RGB)
+        if path == "/api/preprocess_preview":
+            try:
+                data = json.loads(body.decode("utf-8"))
+            except Exception as e:
+                self.send_json_response({"success": False, "error": f"JSON parse error: {str(e)}"}, 400)
+                return
+
+            img_b64 = data.get("image")
+            sample_path = data.get("sample_path")
+            pil_img = None
+
+            if sample_path:
+                if sample_path == "SYNTHETIC:BLANK":
+                    pil_img = Image.new("RGB", (160, 160), color=(128, 128, 128))
+                elif os.path.exists(sample_path):
+                    pil_img = Image.open(sample_path)
+                else:
+                    self.send_json_response({"success": False, "error": f"File tidak ditemukan: {sample_path}"}, 404)
+                    return
+            elif img_b64:
+                if "," in img_b64:
+                    img_b64 = img_b64.split(",", 1)[1]
+                img_bytes = base64.b64decode(img_b64)
+                pil_img = Image.open(io.BytesIO(img_bytes))
+            else:
+                self.send_json_response({"success": False, "error": "Tidak ada data gambar"}, 400)
+                return
+
+            orig_w, orig_h = pil_img.size
+            pil_160, rgb_arr, raw_bytes, checksum = grove_serial.preprocess_image_to_rgb160(pil_img)
+            quality_stats = grove_serial.compute_image_quality(rgb_arr)
+
+            buf = io.BytesIO()
+            pil_160.save(buf, format="JPEG", quality=92)
+            preprocessed_b64 = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+
+            self.send_json_response({
+                "success": True,
+                "preprocessed_image": preprocessed_b64,
+                "orig_size": [orig_w, orig_h],
+                "target_size": [160, 160],
+                "checksum": f"0x{checksum:04X}",
+                "quality": quality_stats
+            })
+            return
+
+        # 3. API: Inferensi Citra (Kamera atau File)
         if path == "/api/infer":
             try:
                 data = json.loads(body.decode("utf-8"))
@@ -234,7 +274,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 if sample_path == "SYNTHETIC:BLANK":
                     pil_img = Image.new("RGB", (160, 160), color=(128, 128, 128))
                 elif os.path.exists(sample_path):
-                    pil_img = Image.open(sample_path).convert("RGB")
+                    pil_img = Image.open(sample_path)
                 else:
                     self.send_json_response({"success": False, "error": f"File sampel tidak ditemukan: {sample_path}"}, 404)
                     return
@@ -243,22 +283,24 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 if "," in img_b64:
                     img_b64 = img_b64.split(",", 1)[1]
                 img_bytes = base64.b64decode(img_b64)
-                pil_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+                pil_img = Image.open(io.BytesIO(img_bytes))
             else:
                 self.send_json_response({"success": False, "error": "Tidak ada data gambar yang dikirim"}, 400)
                 return
 
             # Preprocessing ke 160x160 untuk preview & kirim
             pil_160, rgb_arr, raw_bytes, checksum = grove_serial.preprocess_image_to_rgb160(pil_img)
+            quality_stats = grove_serial.compute_image_quality(rgb_arr)
             
             # Buat base64 dari citra 160x160 yang diproses agar user bisa verifikasi
             buf = io.BytesIO()
-            pil_160.save(buf, format="JPEG", quality=90)
+            pil_160.save(buf, format="JPEG", quality=92)
             preprocessed_b64 = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
 
             # Kirim ke modul Grove Vision AI V2
             infer_result = grove_client.infer(pil_160, port=port)
             infer_result["preprocessed_image"] = preprocessed_b64
+            infer_result["quality"] = quality_stats
             
             self.send_json_response(infer_result)
             return
@@ -268,14 +310,34 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
 def run_server(port=PORT_HTTP):
     ThreadingHTTPServer.allow_reuse_address = True
-    server_address = ("0.0.0.0", port)
-    httpd = ThreadingHTTPServer(server_address, DashboardHandler)
+    httpd = None
+    active_port = port
+
+    # Coba port target; jika port 8080 masih dipakai, coba port berikutnya (8081, dst.)
+    for p_candidate in range(port, port + 10):
+        try:
+            server_address = ("0.0.0.0", p_candidate)
+            httpd = ThreadingHTTPServer(server_address, DashboardHandler)
+            active_port = p_candidate
+            break
+        except OSError as e:
+            if e.errno == 98:  # Address already in use
+                continue
+            raise
+
+    if httpd is None:
+        print(f"[ERROR] Port {port} s/d {port+9} semuanya sedang digunakan!")
+        print("Silakan matikan proses lama dengan: fuser -k 8080/tcp")
+        return
+
     print("=" * 70)
     print("  🐔 Seeed Grove Vision AI V2 — DOC Sexing AI Dashboard")
     print("=" * 70)
     print(f"  Aplikasi UI Web aktif di:")
-    print(f"  👉 http://localhost:{port}")
-    print(f"  👉 http://127.0.0.1:{port}")
+    print(f"  👉 http://localhost:{active_port}")
+    print(f"  👉 http://127.0.0.1:{active_port}")
+    if active_port != port:
+        print(f"  💡 (Catatan: Port {port} sedang sibuk, otomatis dialihkan ke {active_port})")
     print("=" * 70)
     print("  [Fitur Dashboard]")
     print("  * Mode 1: Live Webcam (Kamera PC/Laptop/USB via browser)")

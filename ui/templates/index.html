@@ -11,14 +11,24 @@
     <!-- Header -->
     <header class="navbar">
       <div class="nav-brand">
-        <span class="brand-icon">🐣</span>
+        <div class="brand-logo-wrapper">
+          <img src="/static/img/logo.png" alt="Logo AGRI-06" class="brand-logo-img">
+        </div>
         <div>
+          <div class="brand-badge-tag">AGRI-06 &bull; SMART DOC SEXING</div>
           <h1>DOC Sexing AI Monitor</h1>
           <p class="subtitle">Seeed Grove Vision AI V2 &bull; Arm Cortex-M55 + Ethos-U55 NPU</p>
         </div>
       </div>
       <div class="nav-controls">
-        <div class="control-group">
+        <!-- Friendly Exhibition Status (Shown in Exhibition Mode) -->
+        <div class="exhibit-status-badge" id="exhibit-status-badge">
+          <span class="status-pulse-dot"></span>
+          <span id="exhibit-status-text">Alat Siap Digunakan</span>
+        </div>
+
+        <!-- Technical Port Controls (Shown in Developer Mode) -->
+        <div class="control-group tech-only" id="tech-port-controls">
           <label for="serial-port-select">Port Hardware:</label>
           <div class="select-wrapper">
             <select id="serial-port-select">
@@ -26,9 +36,15 @@
             </select>
           </div>
           <button id="btn-refresh-ports" class="btn btn-secondary btn-icon" title="Scan Ulang Port">🔄</button>
+          <button id="btn-ping" class="btn btn-secondary">
+            <span class="status-dot" id="ping-indicator"></span> Ping Grove
+          </button>
         </div>
-        <button id="btn-ping" class="btn btn-secondary">
-          <span class="status-dot" id="ping-indicator"></span> Ping Grove
+
+        <!-- Mode Toggle Button (Pameran <-> Teknis) -->
+        <button id="btn-toggle-ui-mode" class="btn btn-mode-toggle" title="Ganti Mode Tampilan (Pameran / Teknis)">
+          <span class="mode-icon" id="mode-icon">🎪</span>
+          <span id="mode-text">Mode Pameran</span>
         </button>
       </div>
     </header>
@@ -82,6 +98,24 @@
                 <span class="switch-label">Auto-Infer (tiap 2 dtk)</span>
               </div>
             </div>
+
+            <!-- Preprocessing Live Verification Card (Camera) -->
+            <div class="preprocess-verify-card" id="preprocess-card-cam" style="display: none; margin-top: 1rem;">
+              <div class="preprocess-verify-header">
+                <span class="preprocess-verify-title">🎯 Hasil Cuplikan Viewfinder (160×160 RGB)</span>
+                <span class="preprocess-verify-badge">Terkalibrasi NPU</span>
+              </div>
+              <div class="preprocess-verify-body">
+                <div class="preprocess-thumb-box">
+                  <img id="preprocess-thumb-cam" src="" alt="Preprocessed 160x160">
+                </div>
+                <div class="preprocess-meta-box">
+                  <p><strong>Sumber:</strong> Live Webcam Viewfinder Center Crop</p>
+                  <p><strong>Format:</strong> 160×160 RGB Raw (76.800 Byte)</p>
+                  <p><strong>Status Kualitas:</strong> <span id="preprocess-quality-cam">Optimal</span></p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- TAB 2: FILE UPLOAD & PRESET SAMPLES -->
@@ -103,6 +137,25 @@
               </div>
             </div>
 
+            <!-- Preprocessing Live Verification Card (File) -->
+            <div class="preprocess-verify-card" id="preprocess-card-file" style="display: none;">
+              <div class="preprocess-verify-header">
+                <span class="preprocess-verify-title">🎯 Preprocessed Input (160×160 RGB)</span>
+                <span class="preprocess-verify-badge" id="preprocess-badge-file">Terkalibrasi NPU</span>
+              </div>
+              <div class="preprocess-verify-body">
+                <div class="preprocess-thumb-box">
+                  <img id="preprocess-thumb-file" src="" alt="Preprocessed 160x160">
+                </div>
+                <div class="preprocess-meta-box">
+                  <p><strong>Ukuran Asli:</strong> <span id="preprocess-orig-size">-</span> &rarr; <strong>Target:</strong> 160×160 px</p>
+                  <p><strong>Filter:</strong> Lanczos Antialiasing (Preservasi Bulu Sayap)</p>
+                  <p><strong>Kualitas:</strong> <span id="preprocess-quality-file">Optimal</span></p>
+                  <p><strong>Checksum Paket:</strong> <code id="preprocess-crc-file">0x0000</code></p>
+                </div>
+              </div>
+            </div>
+
             <div class="file-actions">
               <button id="btn-send-file" class="btn btn-success btn-large" disabled>
                 <span class="icon">🚀</span> Kirim ke Grove Vision AI (Infer)
@@ -114,20 +167,36 @@
 
       <!-- Right Column: Results & Hardware Telemetry -->
       <section class="card results-section">
-        <h2 class="card-title">Hasil Prediksi NPU On-Device</h2>
+        <div class="results-header-row">
+          <h2 class="card-title" id="results-card-title">Hasil Prediksi AI</h2>
+          <span class="exhibit-pill" id="exhibit-pill">Mode Pameran</span>
+        </div>
 
         <!-- Main Prediction Badge -->
         <div class="prediction-card" id="prediction-card">
           <div class="badge-header">
-            <span class="sub-label">Hasil Klasifikasi</span>
+            <span class="sub-label">Hasil Klasifikasi Jenis Kelamin</span>
             <span class="status-pill ready" id="status-pill">Siap Menerima Input</span>
           </div>
-          <div class="class-result" id="class-result-text">Menunggu Input...</div>
+          
+          <div class="class-result" id="class-result-text">
+            <span class="class-result-icon" id="class-result-icon">🐣</span>
+            <div class="class-result-body">
+              <div id="class-result-label">Menunggu Input...</div>
+              <div class="class-result-subtitle" id="class-result-subtitle">Letakkan sampel bulu sayap anak ayam</div>
+            </div>
+          </div>
+
+          <!-- Action Guide for Exhibition / Operator -->
+          <div class="result-action-guide" id="result-action-guide">
+            <span class="action-icon" id="action-guide-icon">⏳</span>
+            <span id="action-guide-text">Pilih atau ambil foto anak ayam untuk memulai sortir otomatis.</span>
+          </div>
 
           <!-- Confidence Meter -->
           <div class="confidence-container">
             <div class="confidence-meta">
-              <span>Tingkat Kepastian (Confidence):</span>
+              <span>Tingkat Kepastian AI:</span>
               <span class="confidence-val" id="confidence-val">0.0%</span>
             </div>
             <div class="progress-bar-bg">
@@ -136,8 +205,30 @@
           </div>
         </div>
 
-        <!-- Telemetry & Hardware Metrics -->
-        <div class="metrics-grid">
+        <!-- Live Sort Counter Card (Pameran & Hatchery Stats) -->
+        <div class="stats-counter-card" id="stats-counter-card">
+          <div class="stats-counter-header">
+            <span class="stats-title">📊 Rekapitulasi Sortir Hari Ini</span>
+            <button id="btn-reset-counter" class="btn-counter-reset" title="Reset Hitungan">🔄 Reset</button>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-box stat-total">
+              <span class="stat-num" id="cnt-total">0</span>
+              <span class="stat-label">Total Ayam</span>
+            </div>
+            <div class="stat-box stat-female">
+              <span class="stat-num" id="cnt-female">0</span>
+              <span class="stat-label">🐥 Betina (<span id="pct-female">0%</span>)</span>
+            </div>
+            <div class="stat-box stat-male">
+              <span class="stat-num" id="cnt-male">0</span>
+              <span class="stat-label">🐓 Jantan (<span id="pct-male">0%</span>)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Telemetry & Hardware Metrics (Mode Ahli / Teknis) -->
+        <div class="metrics-grid tech-only" id="tech-metrics-grid">
           <div class="metric-card">
             <span class="metric-icon">⚡</span>
             <div>
@@ -171,8 +262,8 @@
           </div>
         </div>
 
-        <!-- Visual Inspection (Preprocessed NPU Image) -->
-        <div class="inspection-box">
+        <!-- Visual Inspection (Preprocessed NPU Image - Mode Ahli / Teknis) -->
+        <div class="inspection-box tech-only" id="tech-inspection-box">
           <h4>Citra Input NPU (160×160 RGB):</h4>
           <div class="inspection-body">
             <div class="preprocessed-frame-box">
@@ -187,8 +278,8 @@
           </div>
         </div>
 
-        <!-- Hardware Raw Logs Accordion -->
-        <details class="logs-accordion">
+        <!-- Hardware Raw Logs Accordion (Mode Ahli / Teknis) -->
+        <details class="logs-accordion tech-only" id="tech-logs-accordion">
           <summary>📜 Raw Hardware Logs & Protokol PP2IR</summary>
           <pre id="raw-logs-terminal">Menunggu eksekusi...</pre>
         </details>
@@ -197,8 +288,8 @@
 
     <!-- Footer -->
     <footer class="footer">
-      <span>PP2 Chicken DOC Sexing AI &bull; Grove Vision AI Module V2 (Cortex-M55 @ 400MHz)</span>
-      <span class="footer-badge">Firmware: tflm_pp2_full_v1</span>
+      <span>AGRI-06 &bull; Chicken DOC Sexing AI &bull; Grove Vision AI Module V2 (Cortex-M55 @ 400MHz + Ethos-U55 NPU)</span>
+      <span class="footer-badge">Firmware: tflm_pp2_full_fix</span>
     </footer>
   </div>
 

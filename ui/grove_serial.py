@@ -14,7 +14,7 @@ import io
 import serial
 import serial.tools.list_ports
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 import threading
 
@@ -70,29 +70,49 @@ def preprocess_image_to_rgb160(image_input):
     """
     Mengubah berbagai bentuk input (PIL Image, NumPy array, file path, atau bytes)
     menjadi (pil_160, rgb_array_160, raw_bytes, checksum).
-    Menggunakan teknik Center-Crop proporsional agar aspek rasio objek tidak gepeng.
+
+    Langkah Preprocessing Standar Grove NPU:
+    1. Koreksi otomatis orientasi EXIF (misal foto smartphone yang terbalik/miring).
+    2. Penanganan alpha channel (RGBA/LA) dengan komposisi latar belakang putih/netral.
+    3. Center-Crop presisi 1:1 aspek rasio untuk menghindari distorsi/gepeng pada bulu sayap DOC.
+    4. Resampling antialiasing berkualitas tinggi (Lanczos Filter) ke resolusi target 160x160 RGB.
+    5. Ekstraksi raw byte buffer (76.800 B) dan kalkulasi 16-bit Little-Endian checksum.
     """
     if isinstance(image_input, (str, bytes, io.BytesIO)):
         if isinstance(image_input, str) and os.path.exists(image_input):
-            pil_img = Image.open(image_input).convert("RGB")
+            pil_raw = Image.open(image_input)
         elif isinstance(image_input, bytes):
-            pil_img = Image.open(io.BytesIO(image_input)).convert("RGB")
+            pil_raw = Image.open(io.BytesIO(image_input))
         else:
-            pil_img = Image.open(image_input).convert("RGB")
+            pil_raw = Image.open(image_input)
     elif isinstance(image_input, np.ndarray):
-        # Tangani BGR dari OpenCV jika diperlukan
         if image_input.ndim == 3 and image_input.shape[2] == 3:
-            pil_img = Image.fromarray(image_input.astype(np.uint8), mode="RGB")
+            pil_raw = Image.fromarray(image_input.astype(np.uint8), mode="RGB")
         elif image_input.ndim == 2:
-            pil_img = Image.fromarray(image_input.astype(np.uint8), mode="L").convert("RGB")
+            pil_raw = Image.fromarray(image_input.astype(np.uint8), mode="L")
         else:
             raise ValueError(f"Format NumPy array tidak didukung: {image_input.shape}")
     elif isinstance(image_input, Image.Image):
-        pil_img = image_input.convert("RGB")
+        pil_raw = image_input
     else:
         raise TypeError(f"Tipe input citra tidak dikenali: {type(image_input)}")
 
-    # Center-Crop menjadi bujur sangkar (1:1 aspect ratio) sebelum resize ke 160x160
+    # 1. Koreksi otomatis orientasi EXIF
+    try:
+        pil_raw = ImageOps.exif_transpose(pil_raw)
+    except Exception:
+        pass
+
+    # 2. Penanganan kanal alpha (transparansi) secara aman
+    if pil_raw.mode in ("RGBA", "LA") or (pil_raw.mode == "P" and "transparency" in pil_raw.info):
+        rgba = pil_raw.convert("RGBA")
+        bg = Image.new("RGB", rgba.size, (255, 255, 255))
+        bg.paste(rgba, mask=rgba.split()[3])
+        pil_img = bg
+    else:
+        pil_img = pil_raw.convert("RGB")
+
+    # 3. Center-Crop menjadi bujur sangkar (1:1 aspect ratio)
     w, h = pil_img.size
     min_dim = min(w, h)
     left = (w - min_dim) // 2
@@ -101,13 +121,44 @@ def preprocess_image_to_rgb160(image_input):
     bottom = top + min_dim
     square_img = pil_img.crop((left, top, right, bottom))
 
-    # Resize ke 160x160 menggunakan filter bilinear berkualitas tinggi
-    resized_img = square_img.resize(IMG_SIZE, Image.Resampling.BILINEAR)
+    # 4. Resize ke 160x160 menggunakan filter Lanczos beresolusi tinggi (melindungi detail helai bulu sayap)
+    resample_filter = getattr(Image.Resampling, "LANCZOS", Image.Resampling.BICUBIC)
+    resized_img = square_img.resize(IMG_SIZE, resample_filter)
     rgb_arr = np.asarray(resized_img, dtype=np.uint8)
 
+    # 5. Raw bytes dan checksum 16-bit
     raw_bytes = rgb_arr.tobytes()
     checksum = sum(raw_bytes) & 0xFFFF
     return resized_img, rgb_arr, raw_bytes, checksum
+
+
+def compute_image_quality(rgb_arr):
+    """Menghitung metrik kualitas citra untuk validasi sebelum kirim ke hardware."""
+    mean_val = float(np.mean(rgb_arr))
+    std_val = float(np.std(rgb_arr))
+    is_blank = std_val < 12.0
+    is_too_dark = mean_val < 25.0
+    is_too_bright = mean_val > 235.0
+
+    if is_blank:
+        status = "BLANK_FRAME"
+        msg = "Peringatan: Frame terdeteksi kosong/polos (tidak ada objek)"
+    elif is_too_dark:
+        status = "TOO_DARK"
+        msg = "Peringatan: Pencahayaan sangat redup (< 25)"
+    elif is_too_bright:
+        status = "TOO_BRIGHT"
+        msg = "Peringatan: Pencahayaan terlalu silau (> 235)"
+    else:
+        status = "OPTIMAL"
+        msg = "Kualitas citra optimal untuk inferensi NPU"
+
+    return {
+        "mean_brightness": round(mean_val, 1),
+        "contrast_std": round(std_val, 1),
+        "status": status,
+        "message": msg
+    }
 
 
 class GroveVisionClient:

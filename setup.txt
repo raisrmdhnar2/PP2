@@ -67,14 +67,6 @@ conda activate tinyml
 cd ..
 python3 xmodem/xmodem_send.py --port=/dev/ttyACM0 --baudrate=921600 --protocol=xmodem \
   --file=we2_image_gen_local/output_case1_sec_wlcsp/output.img \
-  --model="/home/nexus_is/5.Project/Groove-Vision-Ai-v2/PP2/model/vela_out/model_int8_vela.tflite 0xB7B000 0x00000"
-# Tekan RESET di board saat diminta
-
-# 4. Baca serial — TFLM firmware baudrate 921600 (BUKAN 115200!)
-picocom -b 921600 /dev/ttyACM0
-
-python3 xmodem/xmodem_send.py --port=/dev/ttyACM0 --baudrate=921600 --protocol=xmodem \
-  --file=we2_image_gen_local/output_case1_sec_wlcsp/output.img \
   --model="/home/nexus_is/5.Project/Groove-Vision-Ai-v2/PP2/model/vela_out/model_doc_int8_vela.tflite 0xB7B000 0x00000"
 # Tekan RESET di board saat diminta
 

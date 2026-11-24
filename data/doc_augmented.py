@@ -326,6 +326,8 @@ def main():
     parser.add_argument("--src-dir", type=pathlib.Path, default=default_src, help="Path ke data mentah (default: data/doc)")
     parser.add_argument("--out-dir", type=pathlib.Path, default=default_out, help="Path output (default: data/doc_augmented)")
     parser.add_argument("--target-per-class", type=int, default=1000, help="Jumlah total gambar per kelas (default: 1000)")
+    parser.add_argument("--train-ratio", type=float, default=0.70, help="Proporsi data training (default: 0.70)")
+    parser.add_argument("--valid-ratio", type=float, default=0.20, help="Proporsi data validasi (default: 0.20)")
     parser.add_argument("--split-random", action="store_true", help="Gunakan split acak biasa (default: Chick-Level Partition)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed deterministik")
 
@@ -334,6 +336,8 @@ def main():
         src_dir=args.src_dir,
         out_dir=args.out_dir,
         target_per_class=args.target_per_class,
+        train_ratio=args.train_ratio,
+        valid_ratio=args.valid_ratio,
         split_by_chick=not args.split_random,
         seed=args.seed,
     )

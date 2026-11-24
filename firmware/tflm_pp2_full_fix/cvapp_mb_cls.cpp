@@ -316,8 +316,8 @@ int cv_mb_cls_run(struct_yolov8_ob_algoResult *algoresult_yolov8n_ob)
     volatile uint32_t *uart_regs =
         (volatile uint32_t *)(((uint32_t *)console_uart->uart_info.uart_ctrl)[1]);
 
-    constexpr float CONFIDENCE_THRESHOLD = 50.0f; // Sesuai Notebook 4 (Threshold: 0.50 / 50.0%)
-    constexpr float BLANK_STD_THRESHOLD  = 12.0f;
+    constexpr float JANTAN_OPTIMAL_THRESHOLD = 38.0f; // Sesuai Notebook 4 (Threshold Optimal: 0.38 / 38.0%)
+    constexpr float BLANK_STD_THRESHOLD      = 12.0f;
     const float out_scale = mb_cls_output->params.scale;
     const int32_t out_zp  = mb_cls_output->params.zero_point;
 
@@ -487,20 +487,17 @@ int cv_mb_cls_run(struct_yolov8_ob_algoResult *algoresult_yolov8n_ob)
                 reported_conf_pct = 0.0f; // 0.00% menandakan frame kosong/polos (NO EGG)
                 label_str = "undefined";
                 reason_str = "BLANK_FRAME";
-            } else if (max_conf_pct < CONFIDENCE_THRESHOLD) {
-                class_id = 2;
-                reported_conf_pct = max_conf_pct; // > 0.00% menandakan ragu-ragu (< 50%)
-                label_str = "undefined";
-                reason_str = "LOW_CONF";
-            } else if (p_betina_pct >= p_jantan_pct) {
-                class_id = 0;
-                reported_conf_pct = p_betina_pct;
-                label_str = "Betina (Female)";
-                reason_str = "OK";
-            } else {
+            } else if (p_jantan_pct >= JANTAN_OPTIMAL_THRESHOLD) {
+                // Sesuai Notebook 4: P(Jantan) >= 0.38 (38.0%) -> Jantan (Male)
                 class_id = 1;
                 reported_conf_pct = p_jantan_pct;
                 label_str = "Jantan (Male)";
+                reason_str = "OK";
+            } else {
+                // P(Jantan) < 0.38 (P(Betina) > 62.0%) -> Betina (Female)
+                class_id = 0;
+                reported_conf_pct = p_betina_pct;
+                label_str = "Betina (Female)";
                 reason_str = "OK";
             }
 
